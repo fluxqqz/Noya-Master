@@ -22,7 +22,8 @@ typedef struct __attribute__((packed)) {
   uint8_t  servo_idx;    // 0 = Mouth 1 (GPIO 5), 1 = Mouth 2 (GPIO 1)
   uint8_t  open_angle;   // Open angle & resting position (0..180 deg)
   uint8_t  close_angle;  // Closed position (0..180 deg)
-  uint32_t duration_ms;  // Active animation duration in milliseconds
+  uint32_t duration_ms;  // Active animation duration in milliseconds (0 = STOP)
+  uint32_t rest_ms;      // Rest duration in milliseconds (relays OFF, rests OPEN)
 } AnimatronicCommand;
 
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
@@ -148,6 +149,7 @@ struct HistoryItem {
   uint8_t  open_angle;
   uint8_t  close_angle;
   uint32_t duration_ms;
+  uint32_t rest_ms;
   bool     ack;
   uint32_t timestamp_ms;
 };
@@ -167,6 +169,7 @@ void recordHistory(const AnimatronicCommand& cmd, uint8_t slave_idx, bool initia
   item.open_angle    = cmd.open_angle;
   item.close_angle   = cmd.close_angle;
   item.duration_ms   = cmd.duration_ms;
+  item.rest_ms       = cmd.rest_ms;
   item.ack           = initial_ack;
   item.timestamp_ms  = millis();
 
@@ -207,7 +210,7 @@ void onSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 
 static std::atomic<uint32_t> g_next_cmd_id{1};
 
-bool sendMouthCommand(uint8_t slave_idx, uint8_t servo_idx, uint8_t open_deg, uint8_t close_deg, uint32_t duration_ms) {
+bool sendMouthCommand(uint8_t slave_idx, uint8_t servo_idx, uint8_t open_deg, uint8_t close_deg, uint32_t duration_ms, uint32_t rest_ms = 60000) {
   if (slave_idx >= peerCount || servo_idx >= 2) return false;
 
   AnimatronicCommand cmd;
@@ -216,6 +219,7 @@ bool sendMouthCommand(uint8_t slave_idx, uint8_t servo_idx, uint8_t open_deg, ui
   cmd.open_angle  = open_deg;
   cmd.close_angle = close_deg;
   cmd.duration_ms = duration_ms;
+  cmd.rest_ms     = rest_ms;
 
   esp_err_t result = esp_now_send(peers[slave_idx], (const uint8_t*)&cmd, sizeof(cmd));
   if (result != ESP_OK) {
@@ -233,8 +237,8 @@ bool sendMouthCommand(uint8_t slave_idx, uint8_t servo_idx, uint8_t open_deg, ui
 
   recordHistory(cmd, slave_idx, result == ESP_OK);
 
-  Serial.printf("[Master] Cmd #%u -> Slave %u, Mouth %u (Open:%u Close:%u Dur:%ums) - %s\n",
-                cmd.cmd_id, slave_idx + 1, servo_idx + 1, open_deg, close_deg, duration_ms,
+  Serial.printf("[Master] Cmd #%u -> Slave %u, Mouth %u (Open:%u Close:%u Dur:%ums Rest:%ums) - %s\n",
+                cmd.cmd_id, slave_idx + 1, servo_idx + 1, open_deg, close_deg, duration_ms, rest_ms,
                 result == ESP_OK ? "queued" : "fail");
   return (result == ESP_OK);
 }
@@ -246,29 +250,30 @@ struct RoutineStep {
   uint8_t     open_deg;      // Resting / open angle
   uint8_t     close_deg;     // Closed mouth angle
   uint32_t    duration_ms;   // Active mouth movement duration
+  uint32_t    rest_ms;       // Rest duration before repeating
   uint32_t    delay_next_ms; // Delay before dispatching next step
   const char* desc;          // Step description for dashboard
 };
 
 const RoutineStep ROUTINE[] = {
-  { 0, 0, 50, 100, 60000, 0, "Plant 1 Mouth 1" },
-  { 0, 1, 50, 100, 60000, 0, "Plant 1 Mouth 2" },
-  { 1, 0, 50, 100, 60000, 0, "Plant 2 Mouth 1" },
-  { 1, 1, 50, 100, 60000, 0, "Plant 2 Mouth 2" },
+  { 0, 0, 50, 100, 60000, 60000, 0, "Plant 1 Mouth 1" },
+  { 0, 1, 50, 100, 60000, 60000, 0, "Plant 1 Mouth 2" },
+  { 1, 0, 50, 100, 60000, 60000, 0, "Plant 2 Mouth 1" },
+  { 1, 1, 50, 100, 60000, 60000, 0, "Plant 2 Mouth 2" },
 };
 const size_t ROUTINE_STEPS = sizeof(ROUTINE) / sizeof(ROUTINE[0]);
 
 void startAllSlaves() {
   for (int s = 0; s < peerCount; s++) {
-    sendMouthCommand(s, 0, 50, 100, 60000);
-    sendMouthCommand(s, 1, 50, 100, 60000);
+    sendMouthCommand(s, 0, 50, 100, 60000, 60000);
+    sendMouthCommand(s, 1, 50, 100, 60000, 60000);
   }
 }
 
 void stopAllSlaves() {
   for (int s = 0; s < peerCount; s++) {
-    sendMouthCommand(s, 0, 50, 100, 0);
-    sendMouthCommand(s, 1, 50, 100, 0);
+    sendMouthCommand(s, 0, 50, 100, 0, 0);
+    sendMouthCommand(s, 1, 50, 100, 0, 0);
   }
 }
 
@@ -417,10 +422,10 @@ void handleApiAnimate() {
   int mouth = server.arg("mouth").toInt();
   int open  = constrain(server.arg("open").toInt(), 0, 180);
   int close = constrain(server.arg("close").toInt(), 0, 180);
-  uint32_t duration = server.arg("duration").toInt();
-  if (duration == 0) duration = 60000;
+  uint32_t duration = server.hasArg("duration") ? server.arg("duration").toInt() : 60000;
+  uint32_t rest     = server.hasArg("rest") ? server.arg("rest").toInt() : 60000;
 
-  bool ok = sendMouthCommand(slave, mouth, open, close, duration);
+  bool ok = sendMouthCommand(slave, mouth, open, close, duration, rest);
   server.sendHeader("Access-Control-Allow-Origin", "*");
   server.send(ok ? 200 : 400, "application/json", ok ? "{\"ok\":true}" : "{\"ok\":false}");
 }
