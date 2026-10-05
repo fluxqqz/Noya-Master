@@ -251,74 +251,41 @@ struct RoutineStep {
 };
 
 const RoutineStep ROUTINE[] = {
-  // 1. Plant 1, Mouth 1 speaks for 3.5s
-  { 0, 0, 30, 85, 3500, 1000, "Plant 1 Mouth 1 speaks" },
-  // 2. Plant 1, Mouth 2 joins for 2.5s (overlapping)
-  { 0, 1, 30, 85, 2500, 3000, "Plant 1 Mouth 2 joins (duo)" },
-
-  // 3. Plant 2 answers (Mouth 1 for 3s)
-  { 1, 0, 30, 85, 3000, 1500, "Plant 2 Mouth 1 answers" },
-  // 4. Plant 2, Mouth 2 speaks for 2s
-  { 1, 1, 30, 85, 2000, 2000, "Plant 2 Mouth 2 speaks" },
-
-  // 5. Plant 3 speaks for 3s
-  { 2, 0, 30, 85, 3000, 1000, "Plant 3 speaks" },
-  // 6. Plant 4 responds for 3s
-  { 3, 0, 30, 85, 3000, 3500, "Plant 4 responds" },
-
-  // 7. Chorus: All 4 plants speak simultaneously for 3 seconds
-  { 0, 0, 30, 85, 3000, 0,    "Chorus: All Plants Sing" },
-  { 1, 0, 30, 85, 3000, 0,    "Chorus: All Plants Sing" },
-  { 2, 0, 30, 85, 3000, 0,    "Chorus: All Plants Sing" },
-  { 3, 0, 30, 85, 3000, 3500, "Chorus: All Plants Sing" },
-
-  // 8. Rest break: All plants resting open for 4 seconds before looping
-  { 0, 0, 30, 85, 0,    4000, "Intermission Rest (Open)" }
+  { 0, 0, 50, 100, 60000, 0, "Plant 1 Mouth 1" },
+  { 0, 1, 50, 100, 60000, 0, "Plant 1 Mouth 2" },
+  { 1, 0, 50, 100, 60000, 0, "Plant 2 Mouth 1" },
+  { 1, 1, 50, 100, 60000, 0, "Plant 2 Mouth 2" },
 };
 const size_t ROUTINE_STEPS = sizeof(ROUTINE) / sizeof(ROUTINE[0]);
 
+void startAllSlaves() {
+  for (int s = 0; s < peerCount; s++) {
+    sendMouthCommand(s, 0, 50, 100, 60000);
+    sendMouthCommand(s, 1, 50, 100, 60000);
+  }
+}
+
+void stopAllSlaves() {
+  for (int s = 0; s < peerCount; s++) {
+    sendMouthCommand(s, 0, 50, 100, 0);
+    sendMouthCommand(s, 1, 50, 100, 0);
+  }
+}
+
 void senderTask(void *pvParameters) {
   vTaskDelay(pdMS_TO_TICKS(3000)); // Allow slaves to settle after boot
-  setRoutineDesc("Routine ready");
-  Serial.println("[Master] Starting automated routine loop...");
+  setRoutineDesc("Auto-starting all plants...");
+  Serial.println("[Master] Auto-starting all slave routines (Start once, autonomous loop)...");
 
-  size_t step_idx = 0;
+  // Send START once to all slaves on boot
+  startAllSlaves();
+  g_routine_enabled = true;
+  g_routine_paused  = false;
+  g_current_step    = 1;
+  setRoutineDesc("All plants running (autonomous loop)");
 
   for (;;) {
-    if (!g_routine_enabled || g_routine_paused) {
-      if (g_target_step >= 0) {
-        step_idx = (size_t)g_target_step;
-        g_target_step = -1;
-      } else {
-        vTaskDelay(pdMS_TO_TICKS(50));
-        continue;
-      }
-    }
-
-    if (g_target_step >= 0) {
-      step_idx = (size_t)g_target_step;
-      g_target_step = -1;
-    }
-
-    g_current_step = step_idx + 1;
-    const RoutineStep& step = ROUTINE[step_idx];
-    setRoutineDesc(step.desc);
-
-    if (step.duration_ms > 0) {
-      sendMouthCommand(step.slave_idx, step.servo_idx, step.open_deg, step.close_deg, step.duration_ms);
-    }
-
-    // Responsive delay slicing (checks pause / stop / jump every 50ms)
-    uint32_t remaining = step.delay_next_ms;
-    while (remaining > 0 && g_routine_enabled && !g_routine_paused && g_target_step < 0) {
-      uint32_t slice = remaining > 50 ? 50 : remaining;
-      vTaskDelay(pdMS_TO_TICKS(slice));
-      remaining -= slice;
-    }
-
-    if (g_target_step < 0) {
-      step_idx = (step_idx + 1) % ROUTINE_STEPS;
-    }
+    vTaskDelay(pdMS_TO_TICKS(1000));
   }
 }
 
@@ -426,48 +393,19 @@ void handleApiStatus() {
 void handleApiRoutine() {
   if (server.hasArg("action")) {
     String action = server.arg("action");
-    if (action == "start") {
+    if (action == "start" || action == "resume") {
       g_routine_enabled = true;
       g_routine_paused  = false;
-      g_target_step     = 0;
-      setRoutineDesc("Routine started");
-    } else if (action == "pause") {
-      g_routine_paused = true;
-      setRoutineDesc("Routine paused");
-    } else if (action == "resume") {
-      g_routine_paused = false;
-      setRoutineDesc("Routine resumed");
-    } else if (action == "jump") {
-      int step = server.arg("step").toInt();
-      if (step >= 1 && step <= (int)ROUTINE_STEPS) {
-        g_routine_enabled = true;
-        g_routine_paused  = false;
-        g_target_step     = step - 1;
-        char buf[64];
-        snprintf(buf, sizeof(buf), "Jumped to step %d", step);
-        setRoutineDesc(buf);
-      }
-    } else if (action == "next") {
-      g_routine_enabled = true;
-      g_routine_paused  = false;
-      g_target_step     = (g_current_step >= ROUTINE_STEPS) ? 0 : g_current_step;
-      setRoutineDesc("Next step");
-    } else if (action == "prev") {
-      g_routine_enabled = true;
-      g_routine_paused  = false;
-      g_target_step     = (g_current_step <= 1) ? (ROUTINE_STEPS - 1) : (g_current_step - 2);
-      setRoutineDesc("Previous step");
-    } else if (action == "stop") {
+      g_current_step    = 1;
+      startAllSlaves();
+      setRoutineDesc("All plants running (autonomous loop)");
+    } else if (action == "pause" || action == "stop") {
       g_routine_enabled = false;
       g_routine_paused  = false;
       g_current_step    = 0;
-      g_target_step     = -1;   
-      setRoutineDesc("Routine stopped (resting)");
-      // Park all mouths open
-      for (int s = 0; s < peerCount; s++) {
-        sendMouthCommand(s, 0, 30, 85, 0);
-        sendMouthCommand(s, 1, 30, 85, 0);
-      }
+      g_target_step     = -1;
+      stopAllSlaves();
+      setRoutineDesc("All plants stopped (resting open)");
     }
   }
   server.sendHeader("Access-Control-Allow-Origin", "*");
@@ -480,7 +418,7 @@ void handleApiAnimate() {
   int open  = constrain(server.arg("open").toInt(), 0, 180);
   int close = constrain(server.arg("close").toInt(), 0, 180);
   uint32_t duration = server.arg("duration").toInt();
-  if (duration == 0) duration = 3000;
+  if (duration == 0) duration = 60000;
 
   bool ok = sendMouthCommand(slave, mouth, open, close, duration);
   server.sendHeader("Access-Control-Allow-Origin", "*");
@@ -490,15 +428,17 @@ void handleApiAnimate() {
 void handleApiQuick() {
   String action = server.arg("action");
   if (action == "all_talk") {
-    for (int s = 0; s < peerCount; s++) {
-      sendMouthCommand(s, 0, 30, 85, 3500);
-      sendMouthCommand(s, 1, 30, 85, 3500);
-    }
+    g_routine_enabled = true;
+    g_routine_paused  = false;
+    g_current_step    = 1;
+    startAllSlaves();
+    setRoutineDesc("All plants running (autonomous loop)");
   } else if (action == "rest_all") {
-    for (int s = 0; s < peerCount; s++) {
-      sendMouthCommand(s, 0, 30, 85, 0);
-      sendMouthCommand(s, 1, 30, 85, 0);
-    }
+    g_routine_enabled = false;
+    g_routine_paused  = false;
+    g_current_step    = 0;
+    stopAllSlaves();
+    setRoutineDesc("All plants stopped (resting open)");
   }
   server.sendHeader("Access-Control-Allow-Origin", "*");
   server.send(200, "application/json", "{\"ok\":true}");
