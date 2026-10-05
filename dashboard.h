@@ -988,7 +988,7 @@ const char DASHBOARD_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
         const last = groups[groups.length - 1];
         if (last && last.desc === s.desc) {
           last.end = s.idx;
-          last.dur += s.dur;
+          last.dur = Math.max(last.dur, s.dur);
         } else {
           groups.push({ start: s.idx, end: s.idx, dur: s.dur, desc: s.desc });
         }

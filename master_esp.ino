@@ -1,5 +1,7 @@
 // espnow_sender.ino
 #include <Arduino.h>
+#include <atomic>
+#include <esp_arduino_version.h>
 #include <WiFi.h>
 #include <esp_now.h>
 #include <ESPmDNS.h>
@@ -130,6 +132,15 @@ static bool     g_peer_ack[4]     = { false, false, false, false };
 static bool     g_peer_sent[4]    = { false, false, false, false };
 static SemaphoreHandle_t g_telemetry_mutex = NULL;
 
+void setRoutineDesc(const char* desc) {
+  if (g_telemetry_mutex && xSemaphoreTake(g_telemetry_mutex, pdMS_TO_TICKS(50)) == pdTRUE) {
+    snprintf(g_current_desc, sizeof(g_current_desc), "%s", desc);
+    xSemaphoreGive(g_telemetry_mutex);
+  } else {
+    snprintf(g_current_desc, sizeof(g_current_desc), "%s", desc);
+  }
+}
+
 struct HistoryItem {
   uint32_t cmd_id;
   uint8_t  slave_idx;
@@ -165,22 +176,27 @@ void recordHistory(const AnimatronicCommand& cmd, uint8_t slave_idx, bool initia
   xSemaphoreGive(g_telemetry_mutex);
 }
 
+#if ESP_ARDUINO_VERSION >= ESP_ARDUINO_VERSION_VAL(3, 0, 0)
 void onSent(const wifi_tx_info_t *info, esp_now_send_status_t status) {
+  const uint8_t *mac_addr = info->des_addr;
+#else
+void onSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
+#endif
   bool success = (status == ESP_NOW_SEND_SUCCESS);
   Serial.printf("[ESP-NOW] Send to " MACSTR " — %s\n",
-                MAC2STR(info->des_addr),
+                MAC2STR(mac_addr),
                 success ? "ACK" : "NO-ACK");
 
   if (g_telemetry_mutex && xSemaphoreTake(g_telemetry_mutex, pdMS_TO_TICKS(50)) == pdTRUE) {
     for (int i = 0; i < peerCount; i++) {
-      if (memcmp(peers[i], info->des_addr, 6) == 0) {
+      if (memcmp(peers[i], mac_addr, 6) == 0) {
         g_peer_ack[i] = success;
         break;
       }
     }
     for (size_t i = 0; i < g_history_count; i++) {
       size_t idx = (g_history_head + HISTORY_MAX - 1 - i) % HISTORY_MAX;
-      if (memcmp(peers[g_history[idx].slave_idx], info->des_addr, 6) == 0) {
+      if (memcmp(peers[g_history[idx].slave_idx], mac_addr, 6) == 0) {
         g_history[idx].ack = success;
         break;
       }
@@ -189,7 +205,7 @@ void onSent(const wifi_tx_info_t *info, esp_now_send_status_t status) {
   }
 }
 
-static uint32_t g_next_cmd_id = 1;
+static std::atomic<uint32_t> g_next_cmd_id{1};
 
 bool sendMouthCommand(uint8_t slave_idx, uint8_t servo_idx, uint8_t open_deg, uint8_t close_deg, uint32_t duration_ms) {
   if (slave_idx >= peerCount || servo_idx >= 2) return false;
@@ -263,7 +279,7 @@ const size_t ROUTINE_STEPS = sizeof(ROUTINE) / sizeof(ROUTINE[0]);
 
 void senderTask(void *pvParameters) {
   vTaskDelay(pdMS_TO_TICKS(3000)); // Allow slaves to settle after boot
-  snprintf(g_current_desc, sizeof(g_current_desc), "Routine ready");
+  setRoutineDesc("Routine ready");
   Serial.println("[Master] Starting automated routine loop...");
 
   size_t step_idx = 0;
@@ -286,7 +302,7 @@ void senderTask(void *pvParameters) {
 
     g_current_step = step_idx + 1;
     const RoutineStep& step = ROUTINE[step_idx];
-    snprintf(g_current_desc, sizeof(g_current_desc), "%s", step.desc);
+    setRoutineDesc(step.desc);
 
     if (step.duration_ms > 0) {
       sendMouthCommand(step.slave_idx, step.servo_idx, step.open_deg, step.close_deg, step.duration_ms);
@@ -313,8 +329,13 @@ void handleRoot() {
 
 void handleApiStatus() {
   String json = "{";
+  json.reserve(1500);
 
   json += "\"channel\":" + String(AP_CHANNEL) + ",";
+
+  char step_desc[64] = "";
+  bool peer_ack_snap[4] = {false};
+  bool peer_sent_snap[4] = {false};
 
   // Routine state
   json += "\"routine\":{";
@@ -325,7 +346,21 @@ void handleApiStatus() {
   json += "\",";
   json += "\"current_step\":" + String(g_current_step) + ",";
   json += "\"total_steps\":" + String(ROUTINE_STEPS) + ",";
-  json += "\"step_desc\":\"" + String(g_current_desc) + "\"},";
+
+  if (g_telemetry_mutex && xSemaphoreTake(g_telemetry_mutex, pdMS_TO_TICKS(50)) == pdTRUE) {
+    strncpy(step_desc, g_current_desc, sizeof(step_desc) - 1);
+    step_desc[sizeof(step_desc) - 1] = '\0';
+    for (int i = 0; i < peerCount && i < 4; i++) {
+      peer_ack_snap[i] = g_peer_ack[i];
+      peer_sent_snap[i] = g_peer_sent[i];
+    }
+    xSemaphoreGive(g_telemetry_mutex);
+  } else {
+    strncpy(step_desc, g_current_desc, sizeof(step_desc) - 1);
+    step_desc[sizeof(step_desc) - 1] = '\0';
+  }
+
+  json += "\"step_desc\":\"" + String(step_desc) + "\"},";
 
   // All Steps in Routine for Visual Timeline
   json += "\"steps\":[";
@@ -352,8 +387,8 @@ void handleApiStatus() {
     json += "\"id\":" + String(i + 1) + ",";
     json += "\"name\":\"Plant " + String(i + 1) + "\",";
     json += "\"mac\":\"" + String(macStr) + "\",";
-    json += "\"ack\":" + String(g_peer_ack[i] ? "true" : "false") + ",";
-    json += "\"sent\":" + String(g_peer_sent[i] ? "true" : "false");
+    json += "\"ack\":" + String(peer_ack_snap[i] ? "true" : "false") + ",";
+    json += "\"sent\":" + String(peer_sent_snap[i] ? "true" : "false");
     json += "}";
   }
   json += "],";
@@ -395,37 +430,39 @@ void handleApiRoutine() {
       g_routine_enabled = true;
       g_routine_paused  = false;
       g_target_step     = 0;
-      snprintf(g_current_desc, sizeof(g_current_desc), "Routine started");
+      setRoutineDesc("Routine started");
     } else if (action == "pause") {
       g_routine_paused = true;
-      snprintf(g_current_desc, sizeof(g_current_desc), "Routine paused");
+      setRoutineDesc("Routine paused");
     } else if (action == "resume") {
       g_routine_paused = false;
-      snprintf(g_current_desc, sizeof(g_current_desc), "Routine resumed");
+      setRoutineDesc("Routine resumed");
     } else if (action == "jump") {
       int step = server.arg("step").toInt();
       if (step >= 1 && step <= (int)ROUTINE_STEPS) {
         g_routine_enabled = true;
         g_routine_paused  = false;
         g_target_step     = step - 1;
-        snprintf(g_current_desc, sizeof(g_current_desc), "Jumped to step %d", step);
+        char buf[64];
+        snprintf(buf, sizeof(buf), "Jumped to step %d", step);
+        setRoutineDesc(buf);
       }
     } else if (action == "next") {
       g_routine_enabled = true;
       g_routine_paused  = false;
       g_target_step     = (g_current_step >= ROUTINE_STEPS) ? 0 : g_current_step;
-      snprintf(g_current_desc, sizeof(g_current_desc), "Next step");
+      setRoutineDesc("Next step");
     } else if (action == "prev") {
       g_routine_enabled = true;
       g_routine_paused  = false;
       g_target_step     = (g_current_step <= 1) ? (ROUTINE_STEPS - 1) : (g_current_step - 2);
-      snprintf(g_current_desc, sizeof(g_current_desc), "Previous step");
+      setRoutineDesc("Previous step");
     } else if (action == "stop") {
       g_routine_enabled = false;
       g_routine_paused  = false;
       g_current_step    = 0;
       g_target_step     = -1;   
-      snprintf(g_current_desc, sizeof(g_current_desc), "Routine stopped (resting)");
+      setRoutineDesc("Routine stopped (resting)");
       // Park all mouths open
       for (int s = 0; s < peerCount; s++) {
         sendMouthCommand(s, 0, 30, 85, 0);
@@ -488,7 +525,11 @@ void setup() {
     Serial.println("ESP-NOW init failed");
     return;
   }
+#if ESP_ARDUINO_VERSION >= ESP_ARDUINO_VERSION_VAL(3, 0, 0)
   esp_now_register_send_cb(onSent);
+#else
+  esp_now_register_send_cb((esp_now_send_cb_t)onSent);
+#endif
 
   for (int i = 0; i < peerCount; i++) {
     esp_now_peer_info_t peer = {};
@@ -513,5 +554,5 @@ void loop() {
   server.handleClient();
   ElegantOTA.loop();
 
-  vTaskDelay(pdMS_TO_TICKS(10));
+  vTaskDelay(pdMS_TO_TICKS(1));
 }
