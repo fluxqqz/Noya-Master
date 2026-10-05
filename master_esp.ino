@@ -33,7 +33,7 @@ const char* WIFI_PASS = "animatronics";
 const char* MDNS_HOST = "mcu-master";
 
 const char* AP_SSID   = "mcu-master";
-const char* AP_PASS   = "12345678";
+const char* AP_PASS   = "12344321";
 const bool  AP_HIDDEN = false;
 const int   AP_CHANNEL = 6;
 const int   AP_MAX_CONN = 4;

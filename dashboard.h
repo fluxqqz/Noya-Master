@@ -597,7 +597,15 @@ const char DASHBOARD_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
       outline-offset: 2px;
     }
 
+    input[type="number"]::-webkit-outer-spin-button,
+    input[type="number"]::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+
     input[type="number"] {
+      -moz-appearance: textfield;
+      appearance: textfield;
       width: 64px;
       min-height: var(--control-h);
       font-family: var(--font-mono);
