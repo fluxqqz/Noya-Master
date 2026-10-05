@@ -259,14 +259,16 @@ const RoutineStep ROUTINE[] = {
   { 0, 0, 50, 100, 60000, 60000, 0, "Plant 1 Mouth 1" },
   { 0, 1, 50, 100, 60000, 60000, 0, "Plant 1 Mouth 2" },
   { 1, 0, 50, 100, 60000, 60000, 0, "Plant 2 Mouth 1" },
-  { 1, 1, 50, 100, 60000, 60000, 0, "Plant 2 Mouth 2" },
+  // { 1, 1, 50, 100, 60000, 60000, 0, "Plant 2 Mouth 2" },
 };
 const size_t ROUTINE_STEPS = sizeof(ROUTINE) / sizeof(ROUTINE[0]);
 
 void startAllSlaves() {
-  for (int s = 0; s < peerCount; s++) {
-    sendMouthCommand(s, 0, 50, 100, 60000, 60000);
-    sendMouthCommand(s, 1, 50, 100, 60000, 60000);
+  for (size_t i = 0; i < ROUTINE_STEPS; i++) {
+    const RoutineStep& step = ROUTINE[i];
+    if (step.duration_ms > 0) {
+      sendMouthCommand(step.slave_idx, step.servo_idx, step.open_deg, step.close_deg, step.duration_ms, step.rest_ms);
+    }
   }
 }
 
