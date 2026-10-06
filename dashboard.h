@@ -457,216 +457,6 @@ const char DASHBOARD_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
       white-space: nowrap;
     }
 
-    /* Actuators: Flat Proximity Layout */
-    .plants-layout {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: var(--space-5);
-    }
-
-    .plant-block {
-      border-bottom: 1px solid var(--border);
-      padding-bottom: var(--space-5);
-    }
-
-    .plant-block:last-child {
-      border-bottom: none;
-      padding-bottom: 0;
-    }
-
-    .plant-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      flex-wrap: wrap;
-      gap: var(--space-1) var(--space-3);
-      margin-bottom: var(--space-3);
-    }
-
-    .plant-name {
-      font-size: var(--text-base);
-      font-weight: 600;
-    }
-
-    .plant-meta {
-      font-family: var(--font-mono);
-      font-size: var(--text-xs);
-      color: var(--text-muted);
-    }
-
-    .peer-ok {
-      color: var(--status-ok);
-    }
-
-    .peer-fail {
-      color: var(--danger);
-    }
-
-    .actuator-row {
-      display: grid;
-      grid-template-columns: 120px 1fr 1fr 1fr 88px;
-      align-items: center;
-      gap: var(--space-4);
-      padding: var(--space-2) 0;
-    }
-
-    .actuator-action button {
-      width: 100%;
-    }
-
-    @media (max-width: 800px) {
-      .actuator-row {
-        grid-template-columns: 1fr auto;
-        gap: var(--space-2) var(--space-4);
-        padding: var(--space-3) 0;
-      }
-
-      .actuator-row + .actuator-row {
-        border-top: 1px solid var(--border-subtle);
-      }
-
-      .actuator-id {
-        grid-column: 1;
-        grid-row: 1;
-      }
-
-      .actuator-action {
-        grid-column: 2;
-        grid-row: 1;
-      }
-
-      .actuator-action button {
-        width: auto;
-      }
-
-      .actuator-row .field-group {
-        grid-column: 1 / -1;
-      }
-    }
-
-    .actuator-label {
-      font-size: var(--text-sm);
-      font-weight: 600;
-      color: var(--text);
-    }
-
-    .actuator-sub {
-      font-size: var(--text-xs);
-      color: var(--text-muted);
-      font-family: var(--font-mono);
-    }
-
-    .field-group {
-      display: flex;
-      flex-direction: column;
-      gap: var(--space-1);
-      min-width: 0;
-    }
-
-    .field-label {
-      font-size: var(--text-xs);
-      color: var(--text-muted);
-    }
-
-    .slider-row {
-      display: flex;
-      align-items: center;
-      gap: var(--space-2);
-    }
-
-    .unit {
-      min-width: 2ch;
-      font-family: var(--font-mono);
-      font-size: var(--text-xs);
-      color: var(--text-muted);
-    }
-
-    /* Range: custom track and a larger thumb for easier grabbing */
-    input[type="range"] {
-      -webkit-appearance: none;
-      appearance: none;
-      flex: 1;
-      min-width: 0;
-      height: var(--control-h);
-      margin: 0;
-      background: transparent;
-      cursor: pointer;
-    }
-
-    input[type="range"]::-webkit-slider-runnable-track {
-      height: 4px;
-      border-radius: 2px;
-      background: var(--border);
-    }
-
-    input[type="range"]::-moz-range-track {
-      height: 4px;
-      border-radius: 2px;
-      background: var(--border);
-    }
-
-    input[type="range"]::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      width: 18px;
-      height: 18px;
-      margin-top: -7px;
-      border: 0;
-      border-radius: 50%;
-      background: var(--accent);
-    }
-
-    input[type="range"]::-moz-range-thumb {
-      width: 18px;
-      height: 18px;
-      border: 0;
-      border-radius: 50%;
-      background: var(--accent);
-    }
-
-    input[type="range"]:focus-visible {
-      outline: none;
-    }
-
-    input[type="range"]:focus-visible::-webkit-slider-thumb {
-      outline: 2px solid var(--accent);
-      outline-offset: 2px;
-    }
-
-    input[type="range"]:focus-visible::-moz-range-thumb {
-      outline: 2px solid var(--accent);
-      outline-offset: 2px;
-    }
-
-    input[type="number"]::-webkit-outer-spin-button,
-    input[type="number"]::-webkit-inner-spin-button {
-      -webkit-appearance: none;
-      margin: 0;
-    }
-
-    input[type="number"] {
-      -moz-appearance: textfield;
-      appearance: textfield;
-      width: 64px;
-      min-height: var(--control-h);
-      font-family: var(--font-mono);
-      font-size: var(--text-sm);
-      color: var(--text);
-      background-color: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      padding: var(--space-1) var(--space-2);
-      text-align: right;
-    }
-
-    input[type="number"]:focus-visible {
-      outline: 2px solid var(--accent);
-      outline-offset: 1px;
-    }
-
-    input:disabled {
-      cursor: not-allowed;
-    }
-
     /* Activity Table */
     .table-wrap {
       overflow-x: auto;
@@ -804,10 +594,6 @@ const char DASHBOARD_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
           <div class="button-group">
             <button type="button" class="btn-secondary" onclick="quickAction('all_talk')">Chorus All</button>
             <button type="button" class="btn-secondary" onclick="quickAction('rest_all')">Rest All</button>
-            <button type="button" class="btn-secondary" onclick="movePlant(0)">P1 Move</button>
-            <button type="button" class="btn-secondary" onclick="movePlant(1)">P2 Move</button>
-            <button type="button" class="btn-secondary" onclick="movePlant(2)">P3 Move</button>
-            <button type="button" class="btn-secondary" onclick="movePlant(3)">P4 Move</button>
           </div>
         </div>
 
@@ -816,12 +602,16 @@ const char DASHBOARD_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
         </div>
       </section>
 
-      <!-- Manual Actuators -->
+      <!-- Plant Control -->
       <section>
-        <h2 class="section-label">Manual Actuation</h2>
-        <p id="manual-hint" class="section-hint" hidden>Testing is locked while the show runs &mdash; pause or stop the routine to test mouths manually.</p>
-        <div class="plants-layout" id="plants-layout">
-          <!-- Rendered via JS -->
+        <h2 class="section-label">Plant Control</h2>
+        <div class="button-row">
+          <div class="button-group">
+            <button type="button" class="btn-secondary" onclick="movePlant(0)">P1 Move</button>
+            <button type="button" class="btn-secondary" onclick="movePlant(1)">P2 Move</button>
+            <button type="button" class="btn-secondary" onclick="movePlant(2)">P3 Move</button>
+            <button type="button" class="btn-secondary" onclick="movePlant(3)">P4 Move</button>
+          </div>
         </div>
       </section>
     </fieldset>
@@ -855,100 +645,11 @@ const char DASHBOARD_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script>
-    const PLANTS = [
-      { id: 1, name: "Plant 1", mac: "02:02:00:00:00:02" },
-      { id: 2, name: "Plant 2", mac: "02:02:00:00:00:03" },
-      { id: 3, name: "Plant 3", mac: "02:02:00:00:00:04" },
-      { id: 4, name: "Plant 4", mac: "02:02:00:00:00:05" }
-    ];
-
-    const MOUTHS = [
-      { label: "Mouth 1", gpio: "GPIO 5" },
-      { label: "Mouth 2", gpio: "GPIO 1" }
-    ];
-
     let currentState = 'STOPPED';
     let failCount = 0;
     let stepsSig = '';
     let activeStep = null;
     let toastTimer = null;
-
-    function actuatorRow(p, pIdx, m, mIdx) {
-      const mouthName = `${p.name} ${m.label.toLowerCase()}`;
-      return `
-        <div class="actuator-row">
-          <div class="actuator-id">
-            <div class="actuator-label">${m.label}</div>
-            <div class="actuator-sub">${m.gpio}</div>
-          </div>
-
-          <div class="field-group">
-            <label class="field-label" for="open_num_${pIdx}_${mIdx}">Open (Rest)</label>
-            <div class="slider-row">
-              <input type="range" id="open_${pIdx}_${mIdx}" min="0" max="180" value="30" aria-label="Open angle slider, ${mouthName}" oninput="sync(${pIdx}, ${mIdx}, 'open', this.value)">
-              <input type="number" id="open_num_${pIdx}_${mIdx}" min="0" max="180" value="30" inputmode="numeric" aria-label="Open angle in degrees, ${mouthName}" oninput="sync(${pIdx}, ${mIdx}, 'open', this.value)" onchange="clampNum(this)">
-              <span class="unit" aria-hidden="true">&deg;</span>
-            </div>
-          </div>
-
-          <div class="field-group">
-            <label class="field-label" for="close_num_${pIdx}_${mIdx}">Close</label>
-            <div class="slider-row">
-              <input type="range" id="close_${pIdx}_${mIdx}" min="0" max="180" value="85" aria-label="Close angle slider, ${mouthName}" oninput="sync(${pIdx}, ${mIdx}, 'close', this.value)">
-              <input type="number" id="close_num_${pIdx}_${mIdx}" min="0" max="180" value="85" inputmode="numeric" aria-label="Close angle in degrees, ${mouthName}" oninput="sync(${pIdx}, ${mIdx}, 'close', this.value)" onchange="clampNum(this)">
-              <span class="unit" aria-hidden="true">&deg;</span>
-            </div>
-          </div>
-
-          <div class="field-group">
-            <label class="field-label" for="dur_num_${pIdx}_${mIdx}">Duration</label>
-            <div class="slider-row">
-              <input type="range" id="dur_${pIdx}_${mIdx}" min="500" max="15000" step="100" value="3000" aria-label="Duration slider, ${mouthName}" oninput="sync(${pIdx}, ${mIdx}, 'dur', this.value)">
-              <input type="number" id="dur_num_${pIdx}_${mIdx}" min="500" max="15000" step="100" value="3000" inputmode="numeric" aria-label="Duration in milliseconds, ${mouthName}" oninput="sync(${pIdx}, ${mIdx}, 'dur', this.value)" onchange="clampNum(this)">
-              <span class="unit" aria-hidden="true">ms</span>
-            </div>
-          </div>
-
-          <div class="actuator-action">
-            <button type="button" class="btn-secondary" aria-label="Test ${mouthName}" onclick="animateMouth(${pIdx}, ${mIdx})">Test</button>
-          </div>
-        </div>`;
-    }
-
-    function buildActuators() {
-      const container = document.getElementById('plants-layout');
-      container.innerHTML = PLANTS.map((p, pIdx) => `
-        <div class="plant-block">
-          <div class="plant-header">
-            <h3 class="plant-name">${p.name}</h3>
-            <span class="plant-meta">${p.mac} &middot; <span id="peer-status-${pIdx}">Ready</span></span>
-          </div>
-          ${MOUTHS.map((m, mIdx) => actuatorRow(p, pIdx, m, mIdx)).join('')}
-        </div>
-      `).join('');
-    }
-
-    function sync(p, m, type, val) {
-      document.getElementById(`${type}_${p}_${m}`).value = val;
-      document.getElementById(`${type}_num_${p}_${m}`).value = val;
-    }
-
-    // On blur, snap the typed value into range and mirror it to the slider,
-    // so what's displayed is always what a Test would send.
-    function clampNum(el) {
-      const min = Number(el.min), max = Number(el.max);
-      const v = Number(el.value);
-      el.value = Math.min(max, Math.max(min, isNaN(v) ? min : v));
-      const slider = document.getElementById(el.id.replace('_num_', '_'));
-      if (slider) slider.value = el.value;
-    }
-
-    function inputVal(id) {
-      const el = document.getElementById(id);
-      const min = Number(el.min), max = Number(el.max);
-      const v = Number(el.value);
-      return Math.round(Math.min(max, Math.max(min, isNaN(v) ? min : v)));
-    }
 
     function fmtDur(s) {
       if (s < 60) return s + 's';
@@ -1040,27 +741,6 @@ const char DASHBOARD_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
         updateStatus();
       } catch (e) {
         console.error("Move plant error", e);
-        notify("Command not sent. The master didn't respond.");
-      }
-    }
-
-    async function animateMouth(slave, mouth) {
-      // Read the number fields (what the user sees) and clamp, so sent == shown
-      const open = inputVal(`open_num_${slave}_${mouth}`);
-      const close = inputVal(`close_num_${slave}_${mouth}`);
-      const duration = inputVal(`dur_num_${slave}_${mouth}`);
-
-      try {
-        const res = await fetch('/api/animate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: `slave=${slave}&mouth=${mouth}&open=${open}&close=${close}&duration=${duration}`
-        });
-        if (!res.ok) throw new Error(res.status);
-        saveManual();
-        updateStatus();
-      } catch (e) {
-        console.error("Animate error", e);
         notify("Command not sent. The master didn't respond.");
       }
     }
@@ -1174,11 +854,6 @@ const char DASHBOARD_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
         document.getElementById('btn-prev').disabled = (currentState === 'STOPPED');
         document.getElementById('btn-next').disabled = (currentState === 'STOPPED');
 
-        // Manual tests would fight the running choreography for the servos
-        const manualLocked = (currentState === 'RUNNING');
-        document.querySelectorAll('.actuator-action button').forEach(b => { b.disabled = manualLocked; });
-        document.getElementById('manual-hint').hidden = !manualLocked;
-
         let pct = 0;
         if (currentState === 'STOPPED') {
           document.getElementById('routine-title').textContent = 'Routine stopped';
@@ -1190,24 +865,6 @@ const char DASHBOARD_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
         document.getElementById('progress-bar').setAttribute('aria-valuenow', pct);
 
         renderSteps(data.steps, currentStep, currentState);
-
-        // Peers
-        if (data.peers) {
-          data.peers.forEach((p, idx) => {
-            const el = document.getElementById(`peer-status-${idx}`);
-            if (!el) return;
-            el.classList.remove('peer-ok', 'peer-fail');
-            if (p.sent && !p.ack) {
-              el.textContent = 'No response';
-              el.classList.add('peer-fail');
-            } else if (p.ack) {
-              el.textContent = 'Delivered';
-              el.classList.add('peer-ok');
-            } else {
-              el.textContent = 'Ready';
-            }
-          });
-        }
 
         // History
         const tbody = document.getElementById('history-tbody');
@@ -1231,31 +888,7 @@ const char DASHBOARD_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
       }
     }
 
-    // Remember the last-sent manual values across reloads (tuning sessions)
-    const MANUAL_KEY = 'noya-manual-v1';
-
-    function saveManual() {
-      const vals = {};
-      document.querySelectorAll('#plants-layout input[type="number"]').forEach(el => { vals[el.id] = el.value; });
-      try { localStorage.setItem(MANUAL_KEY, JSON.stringify(vals)); } catch (e) { /* private mode */ }
-    }
-
-    function loadManual() {
-      let vals = null;
-      try { vals = JSON.parse(localStorage.getItem(MANUAL_KEY) || 'null'); } catch (e) { /* corrupt entry */ }
-      if (!vals) return;
-      Object.keys(vals).forEach(id => {
-        const num = document.getElementById(id);
-        if (!num) return;
-        num.value = vals[id];
-        const slider = document.getElementById(id.replace('_num_', '_'));
-        if (slider) slider.value = vals[id];
-      });
-    }
-
     // Initialize
-    buildActuators();
-    loadManual();
     updateStatus();
     setInterval(updateStatus, 800);
   </script>
