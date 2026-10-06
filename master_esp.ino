@@ -299,6 +299,11 @@ void moveSinglePlant(int plantIdx) {
   sendMouthCommand(plantIdx, 1, 50, 100, 60000, 60000);
 }
 
+void moveSingleServo(int plantIdx, int servoIdx) {
+  if (plantIdx < 0 || plantIdx >= peerCount || servoIdx < 0 || servoIdx >= 2) return;
+  sendMouthCommand(plantIdx, servoIdx, 50, 100, 60000, 60000);
+}
+
 void startAllSlaves() {
   size_t total = getActiveRoutineSteps();
   const RoutineStep* routine = getActiveRoutine();
@@ -536,6 +541,15 @@ void handleApiQuick() {
       moveSinglePlant(p);
       char buf[64];
       snprintf(buf, sizeof(buf), "Plant %d moving (autonomous)", p + 1);
+      setRoutineDesc(buf);
+    }
+  } else if (action == "move_servo") {
+    int p = server.arg("plant").toInt();
+    int s = server.arg("servo").toInt();
+    if (p >= 0 && p < peerCount && s >= 0 && s < 2) {
+      moveSingleServo(p, s);
+      char buf[64];
+      snprintf(buf, sizeof(buf), "Plant %d Mouth %d moving (autonomous)", p + 1, s + 1);
       setRoutineDesc(buf);
     }
   } else if (action == "rest_all") {

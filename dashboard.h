@@ -319,6 +319,12 @@ const char DASHBOARD_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
     }
 
     /* Buttons */
+    .plants-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-3) var(--space-5);
+    }
+
     .button-row {
       display: flex;
       flex-wrap: wrap;
@@ -605,12 +611,26 @@ const char DASHBOARD_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
       <!-- Plant Control -->
       <section>
         <h2 class="section-label">Plant Control</h2>
-        <div class="button-row">
+        <div class="plants-grid">
           <div class="button-group">
             <button type="button" class="btn-secondary" onclick="movePlant(0)">P1 Move</button>
+            <button type="button" class="btn-secondary" onclick="moveServo(0, 0)">P1 S1</button>
+            <button type="button" class="btn-secondary" onclick="moveServo(0, 1)">P1 S2</button>
+          </div>
+          <div class="button-group">
             <button type="button" class="btn-secondary" onclick="movePlant(1)">P2 Move</button>
+            <button type="button" class="btn-secondary" onclick="moveServo(1, 0)">P2 S1</button>
+            <button type="button" class="btn-secondary" onclick="moveServo(1, 1)">P2 S2</button>
+          </div>
+          <div class="button-group">
             <button type="button" class="btn-secondary" onclick="movePlant(2)">P3 Move</button>
+            <button type="button" class="btn-secondary" onclick="moveServo(2, 0)">P3 S1</button>
+            <button type="button" class="btn-secondary" onclick="moveServo(2, 1)">P3 S2</button>
+          </div>
+          <div class="button-group">
             <button type="button" class="btn-secondary" onclick="movePlant(3)">P4 Move</button>
+            <button type="button" class="btn-secondary" onclick="moveServo(3, 0)">P4 S1</button>
+            <button type="button" class="btn-secondary" onclick="moveServo(3, 1)">P4 S2</button>
           </div>
         </div>
       </section>
@@ -741,6 +761,21 @@ const char DASHBOARD_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
         updateStatus();
       } catch (e) {
         console.error("Move plant error", e);
+        notify("Command not sent. The master didn't respond.");
+      }
+    }
+
+    async function moveServo(plantIdx, servoIdx) {
+      try {
+        const res = await fetch('/api/quick', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: `action=move_servo&plant=${plantIdx}&servo=${servoIdx}`
+        });
+        if (!res.ok) throw new Error(res.status);
+        updateStatus();
+      } catch (e) {
+        console.error("Move servo error", e);
         notify("Command not sent. The master didn't respond.");
       }
     }
