@@ -278,6 +278,46 @@ const char DASHBOARD_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
       transition: width 200ms ease-out;
     }
 
+    /* Preset Switch */
+    .preset-row {
+      display: flex;
+      align-items: center;
+      margin-bottom: var(--space-3);
+    }
+
+    .preset-segmented {
+      display: inline-flex;
+      background-color: var(--border-subtle);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 2px;
+      gap: 2px;
+    }
+
+    .preset-btn {
+      font-family: var(--font-sans);
+      font-size: var(--text-xs);
+      font-weight: 600;
+      padding: var(--space-1) var(--space-3);
+      min-height: 28px;
+      border-radius: calc(var(--radius-sm) - 2px);
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: background-color 150ms ease-out, color 150ms ease-out;
+    }
+
+    .preset-btn:hover {
+      color: var(--text);
+    }
+
+    .preset-btn.active {
+      background-color: var(--surface);
+      color: var(--accent);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+    }
+
     /* Buttons */
     .button-row {
       display: flex;
@@ -740,6 +780,12 @@ const char DASHBOARD_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
       <!-- Focal Point: Show Routine -->
       <section>
         <h2 class="section-label">Show Routine</h2>
+        <div class="preset-row">
+          <div class="preset-segmented" role="group" aria-label="Routine Preset">
+            <button type="button" id="preset-0-btn" class="preset-btn active" onclick="selectPreset(0)">Staggered (Default)</button>
+            <button type="button" id="preset-1-btn" class="preset-btn" onclick="selectPreset(1)">All Simultaneous</button>
+          </div>
+        </div>
         <div class="routine-header">
           <div id="routine-title" class="routine-step-title">Connecting&hellip;</div>
           <div id="routine-state" class="routine-badge">&mdash;</div>
@@ -758,6 +804,10 @@ const char DASHBOARD_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
           <div class="button-group">
             <button type="button" class="btn-secondary" onclick="quickAction('all_talk')">Chorus All</button>
             <button type="button" class="btn-secondary" onclick="quickAction('rest_all')">Rest All</button>
+            <button type="button" class="btn-secondary" onclick="movePlant(0)">P1 Move</button>
+            <button type="button" class="btn-secondary" onclick="movePlant(1)">P2 Move</button>
+            <button type="button" class="btn-secondary" onclick="movePlant(2)">P3 Move</button>
+            <button type="button" class="btn-secondary" onclick="movePlant(3)">P4 Move</button>
           </div>
         </div>
 
@@ -964,6 +1014,36 @@ const char DASHBOARD_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
       }
     }
 
+    async function selectPreset(idx) {
+      try {
+        const res = await fetch('/api/routine', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: `action=select_preset&preset=${idx}`
+        });
+        if (!res.ok) throw new Error(res.status);
+        updateStatus();
+      } catch (e) {
+        console.error("Preset error", e);
+        notify("Preset not changed. The master didn't respond.");
+      }
+    }
+
+    async function movePlant(idx) {
+      try {
+        const res = await fetch('/api/quick', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: `action=move_plant&plant=${idx}`
+        });
+        if (!res.ok) throw new Error(res.status);
+        updateStatus();
+      } catch (e) {
+        console.error("Move plant error", e);
+        notify("Command not sent. The master didn't respond.");
+      }
+    }
+
     async function animateMouth(slave, mouth) {
       // Read the number fields (what the user sees) and clamp, so sent == shown
       const open = inputVal(`open_num_${slave}_${mouth}`);
@@ -1065,6 +1145,14 @@ const char DASHBOARD_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
         currentState = data.routine.state;
         const currentStep = data.routine.current_step;
         const totalSteps = data.routine.total_steps;
+
+        if (data.routine.active_preset !== undefined) {
+          const p = data.routine.active_preset;
+          const b0 = document.getElementById('preset-0-btn');
+          const b1 = document.getElementById('preset-1-btn');
+          if (b0) b0.classList.toggle('active', p === 0);
+          if (b1) b1.classList.toggle('active', p === 1);
+        }
 
         const stateEl = document.getElementById('routine-state');
         stateEl.textContent = currentState;

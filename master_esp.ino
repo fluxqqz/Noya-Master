@@ -252,11 +252,12 @@ struct RoutineStep {
   uint8_t     close_deg;     // Closed mouth angle
   uint32_t    duration_ms;   // Active mouth movement duration
   uint32_t    rest_ms;       // Rest duration before repeating
-  uint32_t    delay_next_ms; // Delay before dispatching  next step
+  uint32_t    delay_next_ms; // Delay before dispatching next step
   const char* desc;          // Step description for dashboard
 };
 
-const RoutineStep ROUTINE[] = {
+// Preset 0: Staggered Dialogue (Default)
+const RoutineStep ROUTINE_STAGGERED[] = {
   { 0, 0, 50, 100, 60000, 60000,     0, "P1S1" },
   { 2, 0, 50, 100, 60000, 60000, 25000, "P3S1" },
 
@@ -266,11 +267,42 @@ const RoutineStep ROUTINE[] = {
   { 1, 0, 50, 100, 60000, 60000,     0, "P2S1" },
   { 3, 0, 50, 100, 60000, 60000,     0, "P4S1" },
 };
-const size_t ROUTINE_STEPS = sizeof(ROUTINE) / sizeof(ROUTINE[0]);
+const size_t STAGGERED_STEPS = sizeof(ROUTINE_STAGGERED) / sizeof(ROUTINE_STAGGERED[0]);
+
+// Preset 1: All Plants Simultaneous (All 4 plants, both Mouth 1 & Mouth 2)
+const RoutineStep ROUTINE_SIMULTANEOUS[] = {
+  { 0, 0, 50, 100, 60000, 60000, 0, "P1M1" },
+  { 0, 1, 50, 100, 60000, 60000, 0, "P1M2" },
+  { 1, 0, 50, 100, 60000, 60000, 0, "P2M1" },
+  { 1, 1, 50, 100, 60000, 60000, 0, "P2M2" },
+  { 2, 0, 50, 100, 60000, 60000, 0, "P3M1" },
+  { 2, 1, 50, 100, 60000, 60000, 0, "P3M2" },
+  { 3, 0, 50, 100, 60000, 60000, 0, "P4M1" },
+  { 3, 1, 50, 100, 60000, 60000, 0, "P4M2" },
+};
+const size_t SIMULTANEOUS_STEPS = sizeof(ROUTINE_SIMULTANEOUS) / sizeof(ROUTINE_SIMULTANEOUS[0]);
+
+static int g_active_preset = 0; // 0 = Staggered, 1 = Simultaneous
+
+const RoutineStep* getActiveRoutine() {
+  return (g_active_preset == 1) ? ROUTINE_SIMULTANEOUS : ROUTINE_STAGGERED;
+}
+
+size_t getActiveRoutineSteps() {
+  return (g_active_preset == 1) ? SIMULTANEOUS_STEPS : STAGGERED_STEPS;
+}
+
+void moveSinglePlant(int plantIdx) {
+  if (plantIdx < 0 || plantIdx >= peerCount) return;
+  sendMouthCommand(plantIdx, 0, 50, 100, 60000, 60000);
+  sendMouthCommand(plantIdx, 1, 50, 100, 60000, 60000);
+}
 
 void startAllSlaves() {
-  for (size_t i = 0; i < ROUTINE_STEPS; i++) {
-    const RoutineStep& step = ROUTINE[i];
+  size_t total = getActiveRoutineSteps();
+  const RoutineStep* routine = getActiveRoutine();
+  for (size_t i = 0; i < total; i++) {
+    const RoutineStep& step = routine[i];
     if (step.duration_ms > 0) {
       sendMouthCommand(step.slave_idx, step.servo_idx, step.open_deg, step.close_deg, step.duration_ms, step.rest_ms);
     }
@@ -279,8 +311,8 @@ void startAllSlaves() {
 
 void stopAllSlaves() {
   for (int s = 0; s < peerCount; s++) {
-    sendMouthCommand(s, 0, 50, 100, 0, 0);
-    sendMouthCommand(s, 1, 50, 100, 0, 0);
+    sendMouthCommand(s, 0, 50, 50, 0, 0);
+    sendMouthCommand(s, 1, 50, 50, 0, 0);
   }
 }
 
@@ -295,11 +327,13 @@ void senderTask(void *pvParameters) {
     }
 
     g_restart_routine = false;
+    size_t total = getActiveRoutineSteps();
+    const RoutineStep* routine = getActiveRoutine();
 
     // Step-by-step staggered dispatch
-    for (size_t i = 0; i < ROUTINE_STEPS && g_routine_enabled && !g_routine_paused && !g_restart_routine; i++) {
+    for (size_t i = 0; i < total && g_routine_enabled && !g_routine_paused && !g_restart_routine; i++) {
       g_current_step = i + 1;
-      const RoutineStep& step = ROUTINE[i];
+      const RoutineStep& step = routine[i];
       setRoutineDesc(step.desc);
 
       if (step.duration_ms > 0) {
@@ -340,6 +374,9 @@ void handleApiStatus() {
   bool peer_ack_snap[4] = {false};
   bool peer_sent_snap[4] = {false};
 
+  size_t total_steps = getActiveRoutineSteps();
+  const RoutineStep* routine = getActiveRoutine();
+
   // Routine state
   json += "\"routine\":{";
   json += "\"state\":\"";
@@ -347,8 +384,9 @@ void handleApiStatus() {
   else if (g_routine_paused) json += "PAUSED";
   else json += "RUNNING";
   json += "\",";
+  json += "\"active_preset\":" + String(g_active_preset) + ",";
   json += "\"current_step\":" + String(g_current_step) + ",";
-  json += "\"total_steps\":" + String(ROUTINE_STEPS) + ",";
+  json += "\"total_steps\":" + String(total_steps) + ",";
 
   if (g_telemetry_mutex && xSemaphoreTake(g_telemetry_mutex, pdMS_TO_TICKS(50)) == pdTRUE) {
     strncpy(step_desc, g_current_desc, sizeof(step_desc) - 1);
@@ -367,14 +405,14 @@ void handleApiStatus() {
 
   // All Steps in Routine for Visual Timeline
   json += "\"steps\":[";
-  for (size_t i = 0; i < ROUTINE_STEPS; i++) {
+  for (size_t i = 0; i < total_steps; i++) {
     if (i > 0) json += ",";
     json += "{";
     json += "\"idx\":" + String(i + 1) + ",";
-    json += "\"plant\":" + String(ROUTINE[i].slave_idx + 1) + ",";
-    json += "\"mouth\":" + String(ROUTINE[i].servo_idx + 1) + ",";
-    json += "\"dur\":" + String(ROUTINE[i].duration_ms) + ",";
-    json += "\"desc\":\"" + String(ROUTINE[i].desc) + "\"";
+    json += "\"plant\":" + String(routine[i].slave_idx + 1) + ",";
+    json += "\"mouth\":" + String(routine[i].servo_idx + 1) + ",";
+    json += "\"dur\":" + String(routine[i].duration_ms) + ",";
+    json += "\"desc\":\"" + String(routine[i].desc) + "\"";
     json += "}";
   }
   json += "],";
@@ -429,11 +467,25 @@ void handleApiStatus() {
 void handleApiRoutine() {
   if (server.hasArg("action")) {
     String action = server.arg("action");
+    if (action == "select_preset" || (action == "start" && server.hasArg("preset"))) {
+      if (server.hasArg("preset")) {
+        int p = server.arg("preset").toInt();
+        if (p >= 0 && p <= 1) {
+          g_active_preset = p;
+        }
+      }
+    }
+
     if (action == "start") {
       g_routine_enabled = true;
       g_routine_paused  = false;
       g_restart_routine = true;
       setRoutineDesc("Starting routine...");
+    } else if (action == "select_preset") {
+      if (g_routine_enabled) {
+        g_restart_routine = true;
+        setRoutineDesc("Preset changed, restarting...");
+      }
     } else if (action == "resume") {
       g_routine_paused  = false;
       setRoutineDesc("Routine resumed");
@@ -446,7 +498,9 @@ void handleApiRoutine() {
       g_restart_routine = false;
       g_current_step    = 0;
       g_target_step     = -1;
+      setRoutineDesc("Parking to rest position (50°)...");
       stopAllSlaves();
+      vTaskDelay(pdMS_TO_TICKS(1500));
       setRoutineDesc("All plants stopped (resting open)");
     }
   }
@@ -475,11 +529,21 @@ void handleApiQuick() {
     g_current_step    = 1;
     startAllSlaves();
     setRoutineDesc("All plants running (autonomous loop)");
+  } else if (action == "move_plant") {
+    int p = server.arg("plant").toInt();
+    if (p >= 0 && p < peerCount) {
+      moveSinglePlant(p);
+      char buf[64];
+      snprintf(buf, sizeof(buf), "Plant %d moving (autonomous)", p + 1);
+      setRoutineDesc(buf);
+    }
   } else if (action == "rest_all") {
     g_routine_enabled = false;
     g_routine_paused  = false;
     g_current_step    = 0;
+    setRoutineDesc("Parking to rest position (50°)...");
     stopAllSlaves();
+    vTaskDelay(pdMS_TO_TICKS(1500));
     setRoutineDesc("All plants stopped (resting open)");
   }
   server.sendHeader("Access-Control-Allow-Origin", "*");
