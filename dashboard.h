@@ -410,7 +410,10 @@ const char DASHBOARD_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      transition: background-color 150ms ease-out, border-color 150ms ease-out, color 150ms ease-out;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      transition: transform 60ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, color 120ms ease-out, box-shadow 120ms ease-out;
     }
 
     button:focus-visible {
@@ -423,6 +426,10 @@ const char DASHBOARD_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
       cursor: not-allowed;
     }
 
+    button:active:not(:disabled) {
+      transform: scale(0.95) translateY(1px);
+    }
+
     .btn-primary {
       background-color: var(--accent);
       color: var(--accent-contrast);
@@ -430,6 +437,11 @@ const char DASHBOARD_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
 
     .btn-primary:hover:not(:disabled) {
       background-color: var(--accent-hover);
+    }
+
+    .btn-primary:active:not(:disabled) {
+      filter: brightness(0.92);
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
     }
 
     .btn-secondary {
@@ -442,6 +454,13 @@ const char DASHBOARD_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
       border-color: var(--text-muted);
     }
 
+    .btn-secondary:active:not(:disabled) {
+      border-color: var(--accent);
+      background-color: var(--accent-subtle);
+      color: var(--accent);
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.08);
+    }
+
     .btn-danger-ghost {
       background-color: transparent;
       color: var(--danger);
@@ -449,6 +468,18 @@ const char DASHBOARD_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
 
     .btn-danger-ghost:hover:not(:disabled) {
       background-color: var(--border-subtle);
+    }
+
+    .btn-danger-ghost:active:not(:disabled) {
+      background-color: var(--border-subtle);
+      filter: brightness(0.9);
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Momentary Click Flash */
+    .btn-clicked {
+      box-shadow: 0 0 0 3px var(--accent-subtle) !important;
+      border-color: var(--accent) !important;
     }
 
     /* Steps Strip */
@@ -1018,6 +1049,15 @@ const char DASHBOARD_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
         if (failCount >= 2) setLink(false);
       }
     }
+
+    // Tactile button click feedback
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('button');
+      if (btn && !btn.disabled) {
+        btn.classList.add('btn-clicked');
+        setTimeout(() => btn.classList.remove('btn-clicked'), 300);
+      }
+    });
 
     // Initialize
     updateStatus();
