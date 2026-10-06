@@ -126,6 +126,7 @@ void initOTA() {
 // ─── RUNTIME STATE & TELEMETRY ────────────────────────────────────────────────
 static bool     g_routine_enabled = true;
 static bool     g_routine_paused  = false;
+static bool     g_restart_routine = false;
 static int      g_target_step     = -1; // -1 = sequential, >=0 = jump target
 static size_t   g_current_step    = 0;
 static char     g_current_desc[64] = "Starting up...";
@@ -251,15 +252,19 @@ struct RoutineStep {
   uint8_t     close_deg;     // Closed mouth angle
   uint32_t    duration_ms;   // Active mouth movement duration
   uint32_t    rest_ms;       // Rest duration before repeating
-  uint32_t    delay_next_ms; // Delay before dispatching next step
+  uint32_t    delay_next_ms; // Delay before dispatching  next step
   const char* desc;          // Step description for dashboard
 };
 
 const RoutineStep ROUTINE[] = {
-  { 0, 0, 50, 100, 60000, 60000, 0, "Plant 1 Mouth 1" },
-  { 0, 1, 50, 100, 60000, 60000, 0, "Plant 1 Mouth 2" },
-  { 1, 0, 50, 100, 60000, 60000, 0, "Plant 2 Mouth 1" },
-  // { 1, 1, 50, 100, 60000, 60000, 0, "Plant 2 Mouth 2" },
+  { 0, 0, 50, 100, 60000, 60000,     0, "P1S1" },
+  { 2, 0, 50, 100, 60000, 60000, 25000, "P3S1" },
+
+  { 0, 1, 50, 100, 60000, 60000,     0, "P1S2" },
+  { 2, 1, 50, 100, 60000, 60000, 25000, "P3S2" },
+
+  { 1, 0, 50, 100, 60000, 60000,     0, "P2S1" },
+  { 3, 0, 50, 100, 60000, 60000,     0, "P4S1" },
 };
 const size_t ROUTINE_STEPS = sizeof(ROUTINE) / sizeof(ROUTINE[0]);
 
@@ -281,18 +286,42 @@ void stopAllSlaves() {
 
 void senderTask(void *pvParameters) {
   vTaskDelay(pdMS_TO_TICKS(3000)); // Allow slaves to settle after boot
-  setRoutineDesc("Auto-starting all plants...");
-  Serial.println("[Master] Auto-starting all slave routines (Start once, autonomous loop)...");
-
-  // Send START once to all slaves on boot
-  startAllSlaves();
-  g_routine_enabled = true;
-  g_routine_paused  = false;
-  g_current_step    = 1;
-  setRoutineDesc("All plants running (autonomous loop)");
+  setRoutineDesc("Starting routine...");
 
   for (;;) {
-    vTaskDelay(pdMS_TO_TICKS(1000));
+    if (!g_routine_enabled || g_routine_paused) {
+      vTaskDelay(pdMS_TO_TICKS(50));
+      continue;
+    }
+
+    g_restart_routine = false;
+
+    // Step-by-step staggered dispatch
+    for (size_t i = 0; i < ROUTINE_STEPS && g_routine_enabled && !g_routine_paused && !g_restart_routine; i++) {
+      g_current_step = i + 1;
+      const RoutineStep& step = ROUTINE[i];
+      setRoutineDesc(step.desc);
+
+      if (step.duration_ms > 0) {
+        sendMouthCommand(step.slave_idx, step.servo_idx, step.open_deg, step.close_deg, step.duration_ms, step.rest_ms);
+      }
+
+      // Responsive delay slicing (yields every 50ms so C6 single core handles Web/OTA)
+      uint32_t remaining = step.delay_next_ms;
+      while (remaining > 0 && g_routine_enabled && !g_routine_paused && !g_restart_routine) {
+        uint32_t slice = (remaining > 50) ? 50 : remaining;
+        vTaskDelay(pdMS_TO_TICKS(slice));
+        remaining -= slice;
+      }
+    }
+
+    // Once all plants are dispatched with their offsets, let them loop autonomously
+    if (g_routine_enabled && !g_routine_paused && !g_restart_routine) {
+      setRoutineDesc("All plants running (autonomous loop)");
+      while (g_routine_enabled && !g_routine_paused && !g_restart_routine) {
+        vTaskDelay(pdMS_TO_TICKS(500));
+      }
+    }
   }
 }
 
@@ -400,15 +429,21 @@ void handleApiStatus() {
 void handleApiRoutine() {
   if (server.hasArg("action")) {
     String action = server.arg("action");
-    if (action == "start" || action == "resume") {
+    if (action == "start") {
       g_routine_enabled = true;
       g_routine_paused  = false;
-      g_current_step    = 1;
-      startAllSlaves();
-      setRoutineDesc("All plants running (autonomous loop)");
-    } else if (action == "pause" || action == "stop") {
+      g_restart_routine = true;
+      setRoutineDesc("Starting routine...");
+    } else if (action == "resume") {
+      g_routine_paused  = false;
+      setRoutineDesc("Routine resumed");
+    } else if (action == "pause") {
+      g_routine_paused  = true;
+      setRoutineDesc("Routine paused");
+    } else if (action == "stop") {
       g_routine_enabled = false;
       g_routine_paused  = false;
+      g_restart_routine = false;
       g_current_step    = 0;
       g_target_step     = -1;
       stopAllSlaves();
@@ -492,7 +527,8 @@ void setup() {
   // if (xTaskCreatePinnedToCore(wifiTask, "WiFi manager", 16384, NULL, 1, NULL, 0) != pdPASS) {
   //   Serial.println("[WiFi] ERROR: Could not create WiFi task; STA unavailable. AP remains enabled.");
   // }
-  if (xTaskCreatePinnedToCore(senderTask, "Sender task", 8192, NULL, 2, NULL, 0) != pdPASS) {
+  // ESP32-C6 single-core RISC-V: priority 1 shares CPU cooperatively with Arduino loopTask
+  if (xTaskCreate(senderTask, "Sender task", 8192, NULL, 1, NULL) != pdPASS) {
     Serial.println("[Sender] ERROR: Could not create sender task!");
   }
 }
