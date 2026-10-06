@@ -318,13 +318,70 @@ const char DASHBOARD_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
       box-shadow: 0 1px 2px rgba(0,0,0,0.06);
     }
 
-    /* Buttons */
+    /* Modular Plant Cards Grid */
     .plants-grid {
-      display: flex;
-      flex-wrap: wrap;
-      gap: var(--space-3) var(--space-5);
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: var(--space-3);
     }
 
+    .plant-card {
+      background-color: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: var(--space-3);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-3);
+      transition: border-color 150ms ease-out;
+    }
+
+    .plant-card:hover {
+      border-color: var(--text-muted);
+    }
+
+    .plant-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      border-bottom: 1px solid var(--border-subtle);
+      padding-bottom: var(--space-2);
+    }
+
+    .plant-card-title {
+      font-size: var(--text-base);
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .plant-card-sub {
+      font-family: var(--font-mono);
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+    }
+
+    .plant-card-actions {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+    }
+
+    .btn-plant-main {
+      width: 100%;
+    }
+
+    .plant-sub-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-2);
+    }
+
+    .plant-sub-row button {
+      font-size: var(--text-xs);
+      padding: var(--space-2) var(--space-1);
+    }
+
+    /* Buttons */
     .button-row {
       display: flex;
       flex-wrap: wrap;
@@ -612,25 +669,64 @@ const char DASHBOARD_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
       <section>
         <h2 class="section-label">Plant Control</h2>
         <div class="plants-grid">
-          <div class="button-group">
-            <button type="button" class="btn-secondary" onclick="movePlant(0)">P1 Move</button>
-            <button type="button" class="btn-secondary" onclick="moveServo(0, 0)">P1 S1</button>
-            <button type="button" class="btn-secondary" onclick="moveServo(0, 1)">P1 S2</button>
+          <!-- Plant 1 -->
+          <div class="plant-card">
+            <div class="plant-card-header">
+              <span class="plant-card-title">Plant 1</span>
+              <span class="plant-card-sub">GPIO 5 &middot; 1</span>
+            </div>
+            <div class="plant-card-actions">
+              <button type="button" class="btn-secondary btn-plant-main" onclick="movePlant(0)">Move Plant</button>
+              <div class="plant-sub-row">
+                <button type="button" class="btn-secondary" onclick="moveServo(0, 0)">Mouth 1</button>
+                <button type="button" class="btn-secondary" onclick="moveServo(0, 1)">Mouth 2</button>
+              </div>
+            </div>
           </div>
-          <div class="button-group">
-            <button type="button" class="btn-secondary" onclick="movePlant(1)">P2 Move</button>
-            <button type="button" class="btn-secondary" onclick="moveServo(1, 0)">P2 S1</button>
-            <button type="button" class="btn-secondary" onclick="moveServo(1, 1)">P2 S2</button>
+
+          <!-- Plant 2 -->
+          <div class="plant-card">
+            <div class="plant-card-header">
+              <span class="plant-card-title">Plant 2</span>
+              <span class="plant-card-sub">GPIO 5 &middot; 1</span>
+            </div>
+            <div class="plant-card-actions">
+              <button type="button" class="btn-secondary btn-plant-main" onclick="movePlant(1)">Move Plant</button>
+              <div class="plant-sub-row">
+                <button type="button" class="btn-secondary" onclick="moveServo(1, 0)">Mouth 1</button>
+                <button type="button" class="btn-secondary" onclick="moveServo(1, 1)">Mouth 2</button>
+              </div>
+            </div>
           </div>
-          <div class="button-group">
-            <button type="button" class="btn-secondary" onclick="movePlant(2)">P3 Move</button>
-            <button type="button" class="btn-secondary" onclick="moveServo(2, 0)">P3 S1</button>
-            <button type="button" class="btn-secondary" onclick="moveServo(2, 1)">P3 S2</button>
+
+          <!-- Plant 3 -->
+          <div class="plant-card">
+            <div class="plant-card-header">
+              <span class="plant-card-title">Plant 3</span>
+              <span class="plant-card-sub">GPIO 5 &middot; 1</span>
+            </div>
+            <div class="plant-card-actions">
+              <button type="button" class="btn-secondary btn-plant-main" onclick="movePlant(2)">Move Plant</button>
+              <div class="plant-sub-row">
+                <button type="button" class="btn-secondary" onclick="moveServo(2, 0)">Mouth 1</button>
+                <button type="button" class="btn-secondary" onclick="moveServo(2, 1)">Mouth 2</button>
+              </div>
+            </div>
           </div>
-          <div class="button-group">
-            <button type="button" class="btn-secondary" onclick="movePlant(3)">P4 Move</button>
-            <button type="button" class="btn-secondary" onclick="moveServo(3, 0)">P4 S1</button>
-            <button type="button" class="btn-secondary" onclick="moveServo(3, 1)">P4 S2</button>
+
+          <!-- Plant 4 -->
+          <div class="plant-card">
+            <div class="plant-card-header">
+              <span class="plant-card-title">Plant 4</span>
+              <span class="plant-card-sub">GPIO 5 &middot; 1</span>
+            </div>
+            <div class="plant-card-actions">
+              <button type="button" class="btn-secondary btn-plant-main" onclick="movePlant(3)">Move Plant</button>
+              <div class="plant-sub-row">
+                <button type="button" class="btn-secondary" onclick="moveServo(3, 0)">Mouth 1</button>
+                <button type="button" class="btn-secondary" onclick="moveServo(3, 1)">Mouth 2</button>
+              </div>
+            </div>
           </div>
         </div>
       </section>
