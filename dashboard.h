@@ -478,8 +478,11 @@ const char DASHBOARD_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
 
     /* Momentary Click Flash */
     .btn-clicked {
-      box-shadow: 0 0 0 3px var(--accent-subtle) !important;
+      background-color: var(--accent) !important;
+      color: var(--accent-contrast) !important;
       border-color: var(--accent) !important;
+      box-shadow: 0 0 0 4px rgba(20, 184, 166, 0.4) !important;
+      transform: scale(0.96);
     }
 
     /* Steps Strip */
@@ -1050,12 +1053,15 @@ const char DASHBOARD_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
       }
     }
 
+    // Enable iOS Safari active states on touch
+    document.addEventListener('touchstart', () => {}, { passive: true });
+
     // Tactile button click feedback
     document.addEventListener('click', (e) => {
       const btn = e.target.closest('button');
       if (btn && !btn.disabled) {
         btn.classList.add('btn-clicked');
-        setTimeout(() => btn.classList.remove('btn-clicked'), 300);
+        setTimeout(() => btn.classList.remove('btn-clicked'), 250);
       }
     });
 
