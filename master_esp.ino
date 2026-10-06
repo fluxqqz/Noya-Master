@@ -9,6 +9,17 @@
 #include <ElegantOTA.h>
 #include "dashboard.h"
 
+typedef struct {
+  uint8_t     slave_idx;     // 0..3 (Plant 1..4)
+  uint8_t     servo_idx;     // 0 = Mouth 1 (GPIO 5), 1 = Mouth 2 (GPIO 1)
+  uint8_t     open_deg;      // Resting / open angle
+  uint8_t     close_deg;     // Closed mouth angle
+  uint32_t    duration_ms;   // Active mouth movement duration
+  uint32_t    rest_ms;       // Rest duration before repeating
+  uint32_t    delay_next_ms; // Delay before dispatching next step
+  const char* desc;          // Step description for dashboard
+} RoutineStep;
+
 uint8_t peers[][6] = {
   {0x02, 0x02, 0x00, 0x00, 0x00, 0x02},
   {0x02, 0x02, 0x00, 0x00, 0x00, 0x03},
@@ -245,17 +256,6 @@ bool sendMouthCommand(uint8_t slave_idx, uint8_t servo_idx, uint8_t open_deg, ui
 }
 
 // ─── CHOREOGRAPHY TIMELINE ───────────────────────────────────────────────────
-struct RoutineStep {
-  uint8_t     slave_idx;     // 0..3 (Plant 1..4)
-  uint8_t     servo_idx;     // 0 = Mouth 1 (GPIO 5), 1 = Mouth 2 (GPIO 1)
-  uint8_t     open_deg;      // Resting / open angle
-  uint8_t     close_deg;     // Closed mouth angle
-  uint32_t    duration_ms;   // Active mouth movement duration
-  uint32_t    rest_ms;       // Rest duration before repeating
-  uint32_t    delay_next_ms; // Delay before dispatching next step
-  const char* desc;          // Step description for dashboard
-};
-
 // Preset 0: Staggered Dialogue (Default)
 const RoutineStep ROUTINE_STAGGERED[] = {
   { 0, 0, 50, 100, 60000, 60000,     0, "P1S1" },
